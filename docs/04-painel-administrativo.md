@@ -7,7 +7,7 @@ Python + FastAPI (backend), HTML/CSS/JavaScript sem framework (frontend), JSON S
 
 ## Dados
 - `data/games/<game-id>.json` — jogo com as traduções, no mesmo formato do catalog.json (sem as URLs de imagem).
-- `data/images/<game-id>/icon.png` (48×48) e `cover.jpg` (112×128) — já processadas.
+- `data/images/<game-id>/icon.png` (48×48) e `cover.jpg` (192×128, 3:2) — já processadas.
 - `data/files/<translation-id>/<arquivo>` — pacotes das traduções (fora do Git).
 - `data/settings/settings.json` — `base_url`, `catalog_url` (opcional), `catalog_version` e a publicação do aplicativo (`app_publish`, `app_required`, `app_notes`).
 

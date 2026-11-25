@@ -71,17 +71,17 @@ Sem logotipos, personagens ou artes da Nintendo, assim como o 3dsDL. Ícone e ba
 | Imagem | Tamanho | Formato | Onde aparece |
 |---|---|---|---|
 | Ícone do jogo | **48×48** | PNG | Grade/lista do catálogo, telas de detalhe e instalação (mesmo tamanho dos ícones do sistema; usa a moldura de `drawTitleIcon`) |
-| Capa | **112×128** | JPEG | Painel da tela superior do jogo selecionado |
+| Capa | **192×128** (3:2) | JPEG | Aba Info dos detalhes do jogo, centralizada |
 
 - O painel gera exatamente esses tamanhos (recorte + redimensionamento). O app não redimensiona: imagem com tamanho diferente é recusada e mostra o ícone padrão.
-- Ambos cabem em texturas potência de 2 (64×64 e 128×128) sem desperdício grande.
+- Cabem em texturas potência de 2 (64×64 e 256×128).
 
 ### 5.1 Diferença importante em relação ao 3dsDL
 
 O 3dsDL mostra **um** ícone e **uma** imagem por vez (uma textura compartilhada para cada). Uma loja precisa de muitos ícones ao mesmo tempo. Componente novo:
 
 - **`IconAtlas`**: uma textura 512×512 RGB565 dividida em 100 células de 48×48 (10×10, com margem), com substituição LRU. Uma página da grade nunca passa de ~15 ícones, então 100 células sobram para as páginas vizinhas sem baixar de novo. Memória: 512 KiB.
-- **`CoverSlot`**: 2 texturas 128×128 (capa atual e a próxima, para trocar sem piscar). Memória: 64 KiB.
+- **`CoverSlot`**: 6 texturas 256×128 (capa 192×128). Memória: 384 KiB.
 - Carregamento: SD → decodificação (stb_image/libjpeg-turbo) em thread separada → upload para a célula no thread principal. Enquanto isso, mostra um ícone de espera.
 
 ---

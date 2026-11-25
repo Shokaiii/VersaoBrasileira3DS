@@ -4,14 +4,14 @@
 
 #include <citro2d.h>
 
-// Ícones (48x48) e capas (112x128) do catálogo, carregados sob demanda
+// Ícones (48x48) e capas (192x128, 3:2) do catálogo, carregados sob demanda
 // (Especificação 02, §5): memória -> cartão SD -> download em segundo plano.
 // Enquanto uma imagem não está pronta, as funções devolvem nullptr e a tela
 // desenha um marcador no lugar.
 namespace imagecache {
 
 constexpr int IconSize = 48;
-constexpr int CoverWidth = 112;
+constexpr int CoverWidth = 192;
 constexpr int CoverHeight = 128;
 
 void init();

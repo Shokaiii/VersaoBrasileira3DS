@@ -404,14 +404,27 @@ private:
 };
 
 // --- Detalhes (tela inferior) ---------------------------------------------------
+// Três abas no alto (Info, Tradução, Créditos), conteúdo rolável abaixo delas
+// e as ações nas abas cinza de baixo, ao lado de Voltar.
 
-const ui::Rect DetailArea = {0, 0, 320, 162};
-const ui::Rect FavoriteButton = {8, 166, 148, 36};
-const ui::Rect InstallButton = {164, 166, 148, 36};
+enum class Pane { Info, Translation, Credits };
+constexpr int PaneCount = 3;
+const char *const PaneNames[PaneCount] = {"Info", "Tradução", "Créditos"};
+
+ui::Rect paneTab(int index)
+{
+    return {6 + index * 104.0f, 4, 100, 24};
+}
+
+const ui::Rect DetailArea = {0, 32, 320, 174};
+// Favoritar só com o ícone, entre as duas abas (Biblioteca).
+const ui::Rect FavoriteIcon = {133, 211, 54, 28};
 
 constexpr float TagScale = 0.36f;
 constexpr float ValueScale = 0.44f;
 constexpr float LineStep = 18;
+constexpr float TagWidth = 110;
+constexpr float FullWidth = 304;
 
 // Etiqueta azul + valor numa linha. Retorna o y da próxima linha.
 float tagLine(float x, float y, float tagWidth, float totalWidth,
@@ -427,17 +440,158 @@ float tagLine(float x, float y, float tagWidth, float totalWidth,
     return y + LineStep;
 }
 
-float paragraph(const std::string &text, float x, float y, float width)
+// Etiqueta + valor quebrado em até maxLines linhas ao lado dela.
+float tagWrapped(float x, float y, const std::string &tag, const std::string &value,
+                 int maxLines, u32 color = ui::color::Ink)
+{
+    ui::fillRound({x, y, TagWidth, 15}, 4, ui::color::Tag);
+    ui::drawCentered(tag, {x, y, TagWidth, 15}, TagScale, ui::color::rgb(0xFFFFFF));
+    const float end = ui::drawWrapped(value, x + TagWidth + 6, y, ValueScale, color,
+                                      FullWidth - TagWidth - 6, maxLines);
+    return std::max(y + LineStep, end + 3);
+}
+
+float paragraph(const std::string &text, float x, float y, float width,
+                u32 color = ui::color::Ink)
 {
     if (text.empty()) {
         return y;
     }
-    return ui::drawWrapped(text, x, y, ValueScale, ui::color::Ink, width, 60);
+    return ui::drawWrapped(text, x, y, ValueScale, color, width, 60);
 }
 
-class Details {
+// "Tradução 1/2 · L / R para trocar", quando o jogo tem mais de uma.
+float translationSelector(float y, int index, int count)
+{
+    if (count <= 1) {
+        return y;
+    }
+    ui::drawText("Tradução " + std::to_string(index + 1) + "/" + std::to_string(count),
+                 8, y, 0.42f, ui::color::Accent);
+    ui::drawText("L / R para trocar", 312, y, 0.38f, ui::color::InkSoft, C2D_AlignRight);
+    return y + 16;
+}
+
+std::string gameVersionsText(const store::Translation *t)
+{
+    if (t == nullptr || t->compatibility.gameVersions.empty()) {
+        return "Qualquer";
+    }
+    return join(t->compatibility.gameVersions, ", ");
+}
+
+// Aba Info: nome, capa 3:2 centralizada, plataforma, Title ID, versão do jogo
+// e descrição.
+float drawInfoPane(const store::Catalog &catalog, const store::Game &game,
+                   const store::Translation *t, float y)
+{
+    y = ui::drawWrapped(game.name, 8, y, 0.56f, ui::color::InkStrong, FullWidth, 2) + 6;
+    const float coverX = (320 - imagecache::CoverWidth) / 2.0f;
+    const C2D_Image *cover =
+        game.cover.empty()
+            ? nullptr
+            : imagecache::cover(game.cover, catalog.resolveUrl(game.cover.url));
+    if (cover != nullptr) {
+        ui::drawImage(*cover, coverX, y);
+    } else {
+        ui::fillRound({coverX, y, static_cast<float>(imagecache::CoverWidth),
+                       static_cast<float>(imagecache::CoverHeight)},
+                      5, ui::color::Recess);
+        ui::drawIcon(ui::Icon::Picture, 160 - 16, y + imagecache::CoverHeight / 2.0f - 16,
+                     32, ui::color::Neutral);
+    }
+    y += imagecache::CoverHeight + 8;
+    y = tagLine(8, y, TagWidth, FullWidth, "Plataforma", platformName(game.platform));
+    std::vector<std::string> titles;
+    for (const store::TitleId &title : game.titleIds) {
+        titles.push_back(title.region + " " + title.id);
+    }
+    y = tagLine(8, y, TagWidth, FullWidth, "Title ID",
+                titles.empty() ? "—" : join(titles, "  ·  "));
+    y = tagLine(8, y, TagWidth, FullWidth, "Versão do jogo", gameVersionsText(t));
+    return paragraph(game.description, 8, y + 4, FullWidth);
+}
+
+std::string requirementsText(const store::Translation &t)
+{
+    std::vector<std::string> names;
+    for (const std::string &item : t.compatibility.requirements) {
+        names.push_back(requirementName(item));
+    }
+    return join(names, ", ");
+}
+
+std::string consolesText(const store::Translation &t)
+{
+    return t.compatibility.consoles == "new3ds" ? "Somente New 3DS / New 2DS XL"
+                                                : "Todos os modelos";
+}
+
+// Compatibilidade comum às abas Tradução do Catálogo e da Biblioteca:
+// Regiões, Consoles, Download, Requisitos e Observações (em vermelho).
+float compatibilityLines(const store::Translation &t, float y)
+{
+    if (!t.compatibility.regions.empty()) {
+        y = tagLine(8, y, TagWidth, FullWidth, "Regiões",
+                    join(t.compatibility.regions, ", "));
+    }
+    y = tagLine(8, y, TagWidth, FullWidth, "Consoles", consolesText(t));
+    if (t.downloadSize > 0) {
+        y = tagLine(8, y, TagWidth, FullWidth, "Download", units::bytes(t.downloadSize));
+    }
+    if (!t.compatibility.requirements.empty()) {
+        y = tagWrapped(8, y, "Requisitos", requirementsText(t), 2);
+    }
+    if (!t.compatibility.notes.empty()) {
+        y = tagWrapped(8, y, "Observações", t.compatibility.notes, 40, ui::color::Bad);
+    }
+    return y;
+}
+
+// Aba Tradução (Catálogo, Busca, Favoritos).
+float drawTranslationPane(const store::Game &game, const store::Translation *t,
+                          int index, float y)
+{
+    if (t == nullptr) {
+        ui::drawText("Nenhuma tradução disponível.", 8, y, ValueScale, ui::color::InkSoft);
+        return y + LineStep;
+    }
+    y = translationSelector(y, index, static_cast<int>(game.translations.size()));
+    y = ui::drawWrapped(t->name, 8, y, 0.52f, ui::color::InkStrong, FullWidth, 2) + 4;
+    y = tagLine(8, y, TagWidth, FullWidth, "Idioma", languageName(t->language));
+    y = tagLine(8, y, TagWidth, FullWidth, "Versão da tradução", t->version);
+    if (!t->releaseDate.empty()) {
+        y = tagLine(8, y, TagWidth, FullWidth, "Lançamento", brazilianDate(t->releaseDate));
+    }
+    y = compatibilityLines(*t, y);
+    return paragraph(t->description, 8, y + 4, FullWidth);
+}
+
+// Aba Créditos: a equipe da tradução, um nome por bloco com a função abaixo.
+float drawCreditsPane(const store::Translation *t, int index, int count, float y)
+{
+    y = translationSelector(y, index, count);
+    if (t == nullptr || t->authors.empty()) {
+        ui::drawText("Nenhum crédito informado.", 8, y, ValueScale, ui::color::InkSoft);
+        return y + LineStep;
+    }
+    ui::drawText("Equipe", 8, y, 0.46f, ui::color::Accent);
+    y += 20;
+    for (const store::Author &author : t->authors) {
+        y = ui::drawWrapped(author.name, 8, y, 0.48f, ui::color::InkStrong, FullWidth, 4);
+        if (!author.role.empty()) {
+            y = ui::drawWrapped(author.role, 8, y, 0.42f, ui::color::InkSoft, FullWidth, 4);
+        }
+        y += 6;
+    }
+    return y;
+}
+
+// Estado comum dos detalhes: jogo mostrado, tradução, aba e rolagem.
+class DetailView {
 public:
     int translation = 0;
+    Pane pane = Pane::Info;
 
     void show(const std::string &gameId)
     {
@@ -448,132 +602,74 @@ public:
         }
     }
 
-    void scroll(const ui::Input &input)
+    // L/R trocam de tradução; toque nas abas troca a aba; toque e Circle Pad
+    // rolam o conteúdo.
+    void input(const ui::Input &input, int translations)
     {
+        if ((input.down & KEY_L) && translation > 0) {
+            --translation;
+            sound::play(sound::Effect::Move);
+        }
+        if ((input.down & KEY_R) && translation + 1 < translations) {
+            ++translation;
+            sound::play(sound::Effect::Move);
+        }
+        if (input.down & KEY_TOUCH) {
+            for (int index = 0; index < PaneCount; ++index) {
+                if (paneTab(index).contains(input.touch) &&
+                    static_cast<int>(pane) != index) {
+                    pane = static_cast<Pane>(index);
+                    scroller_.setOffset(0);
+                    sound::play(sound::Effect::Move);
+                }
+            }
+        }
         scroller_.update(input, DetailArea, content_, DetailArea.h);
-        // Circle Pad rola os detalhes (o direcional fica com a grade).
         circlePosition circle;
         hidCircleRead(&circle);
         constexpr int DeadZone = 20;
         if (std::abs(circle.dy) > DeadZone) {
             const float maximum = std::max(0.0f, content_ - DetailArea.h);
-            const float speed = circle.dy / 156.0f * 7.0f;
             scroller_.setOffset(std::max(
-                0.0f, std::min(maximum, scroller_.offset() - speed)));
+                0.0f, std::min(maximum, scroller_.offset() - circle.dy / 156.0f * 7.0f)));
         }
     }
 
-    void draw(const store::Catalog &catalog, const store::Game &game)
+    int clampTranslation(int count)
+    {
+        translation = std::max(0, std::min(translation, count - 1));
+        return translation;
+    }
+
+    void drawTabs() const
+    {
+        for (int index = 0; index < PaneCount; ++index) {
+            const ui::Rect rect = paneTab(index);
+            const bool current = static_cast<int>(pane) == index;
+            ui::fillRound(rect, 6, current ? ui::color::Accent : ui::color::Recess);
+            ui::drawCentered(PaneNames[index], rect, 0.46f,
+                             current ? ui::color::rgb(0xFFFFFF) : ui::color::Ink);
+        }
+    }
+
+    // Abre a área rolável e devolve o y onde o conteúdo começa.
+    float begin()
     {
         ui::pushClip(DetailArea);
-        const float top = 6 - scroller_.offset();
-        float y = top;
+        top_ = DetailArea.y + 6 - scroller_.offset();
+        return top_;
+    }
 
-        // Capa à esquerda, dados do jogo à direita.
-        const C2D_Image *cover =
-            game.cover.empty()
-                ? nullptr
-                : imagecache::cover(game.cover, catalog.resolveUrl(game.cover.url));
-        if (cover != nullptr) {
-            ui::drawImage(*cover, 8, y);
-        } else {
-            ui::fillRound({8, y, 112, 128}, 5, ui::color::Recess);
-            ui::drawIcon(ui::Icon::Picture, 48, y + 48, 32, ui::color::Neutral);
-        }
-        constexpr float RightX = 128;
-        constexpr float RightWidth = 184;
-        float right = ui::drawWrapped(game.name, RightX, y, 0.56f,
-                                      ui::color::InkStrong, RightWidth, 3) + 4;
-        // Balões 10% maiores que antes (62 -> 68), para "Plataforma" caber.
-        constexpr float GameTag = 68;
-        right = tagLine(RightX, right, GameTag, RightWidth, "Plataforma",
-                        platformName(game.platform));
-        right = tagLine(RightX, right, GameTag, RightWidth, "ID", game.id);
-        for (const store::TitleId &title : game.titleIds) {
-            right = tagLine(RightX, right, GameTag, RightWidth, "Title ID",
-                            title.region + " " + title.id);
-        }
-        // Versão exigida do jogo, da tradução selecionada.
-        if (!game.translations.empty()) {
-            const int index = std::max(
-                0, std::min(translation,
-                            static_cast<int>(game.translations.size()) - 1));
-            const std::vector<std::string> &versions =
-                game.translations[index].compatibility.gameVersions;
-            right = tagLine(RightX, right, GameTag, RightWidth, "Versão",
-                            versions.empty() ? "Qualquer" : join(versions, ", "));
-        }
-        y = std::max(y + 128, right) + 8;
-        y = paragraph(game.description, 8, y, 304) + 6;
-
-        // Tradução selecionada.
-        ui::fillRound({8, y, 304, 1.5f}, 0, ui::color::Dot);
-        y += 8;
-        if (game.translations.empty()) {
-            ui::drawText("Nenhuma tradução disponível.", 8, y, ValueScale,
-                         ui::color::InkSoft);
-            y += LineStep;
-        } else {
-            const int count = static_cast<int>(game.translations.size());
-            translation = std::max(0, std::min(translation, count - 1));
-            const store::Translation &t = game.translations[translation];
-            if (count > 1) {
-                ui::drawText("Tradução " + std::to_string(translation + 1) + "/" +
-                                 std::to_string(count),
-                             8, y, 0.42f, ui::color::Accent);
-                ui::drawText("L / R para trocar", 312, y, 0.38f,
-                             ui::color::InkSoft, C2D_AlignRight);
-                y += 16;
-            }
-            y = ui::drawWrapped(t.name, 8, y, 0.52f, ui::color::InkStrong, 304, 3) + 4;
-            constexpr float TagWidth = 110;
-            y = tagLine(8, y, TagWidth, 304, "Idioma", languageName(t.language));
-            y = tagLine(8, y, TagWidth, 304, "Versão", t.version);
-            if (!t.releaseDate.empty()) {
-                y = tagLine(8, y, TagWidth, 304, "Lançamento",
-                            brazilianDate(t.releaseDate));
-            }
-            for (size_t index = 0; index < t.authors.size(); ++index) {
-                const store::Author &author = t.authors[index];
-                y = tagLine(8, y, TagWidth, 304, index == 0 ? "Equipe" : "",
-                            author.role.empty() ? author.name
-                                                : author.name + " — " + author.role);
-            }
-            if (!t.compatibility.regions.empty()) {
-                y = tagLine(8, y, TagWidth, 304, "Regiões",
-                            join(t.compatibility.regions, ", "));
-            }
-            y = tagLine(8, y, TagWidth, 304, "Consoles",
-                        t.compatibility.consoles == "new3ds"
-                            ? "Somente New 3DS / New 2DS XL"
-                            : "Todos os modelos");
-            if (!t.compatibility.requirements.empty()) {
-                std::vector<std::string> names;
-                for (const std::string &item : t.compatibility.requirements) {
-                    names.push_back(requirementName(item));
-                }
-                y = tagLine(8, y, TagWidth, 304, "Requisitos", join(names, ", "));
-            }
-            if (t.downloadSize > 0) {
-                y = tagLine(8, y, TagWidth, 304, "Download",
-                            units::bytes(t.downloadSize));
-            }
-            if (!t.compatibility.notes.empty()) {
-                y = tagLine(8, y, TagWidth, 304, "Observações", "");
-                y = paragraph(t.compatibility.notes, 8, y, 304);
-            }
-            y = paragraph(t.description, 8, y + 4, 304);
-        }
-        content_ = (y - top) + 10;
+    void end(float y)
+    {
+        content_ = (y - top_) + 10;
         ui::popClip();
-
-        // Barra de rolagem.
         if (content_ > DetailArea.h) {
             const float thumb = std::max(16.0f, DetailArea.h * DetailArea.h / content_);
             const float maxOffset = content_ - DetailArea.h;
             const float ty = (DetailArea.h - thumb) *
                              std::min(1.0f, std::max(0.0f, scroller_.offset() / maxOffset));
-            ui::fillRound({315, ty + 2, 2.5f, thumb - 4}, 1, ui::color::Dot);
+            ui::fillRound({315, DetailArea.y + ty + 2, 2.5f, thumb - 4}, 1, ui::color::Dot);
         }
     }
 
@@ -581,7 +677,10 @@ private:
     std::string shown_;
     ui::Scroller scroller_;
     float content_ = 0;
+    float top_ = 0;
 };
+
+using Details = DetailView;
 
 std::vector<const store::Game *> listFor(const store::Catalog &catalog,
                                          const FavoriteGames &favorites,
@@ -679,39 +778,75 @@ void requestInstall(const store::Catalog &catalog, const store::Game &game,
 
 enum class DetailResult { None, Favorited, Unfavorited, Dialog };
 
+// Ação da aba cinza da direita, conforme a aba de cima: Favoritar (Info),
+// Instalar/Atualizar/Reinstalar (Tradução) ou nenhuma (Créditos).
+struct PaneAction {
+    std::string label; // vazio: sem aba
+    std::string key;
+    bool enabled = false;
+};
+
+PaneAction paneAction(const store::Translation *t, Pane pane, bool favorite)
+{
+    PaneAction action;
+    if (pane == Pane::Info) {
+        action = {favorite ? "Desfavoritar" : "Favoritar", "X", true};
+    } else if (pane == Pane::Translation && t != nullptr) {
+        switch (installState(*t)) {
+        case InstallState::Unavailable:
+            break;
+        case InstallState::NeedsNewerApp:
+            action = {"Requer app novo", "", false};
+            break;
+        case InstallState::Pending:
+            action = {"Na fila", "", false};
+            break;
+        case InstallState::Install:
+            action = {"Instalar", "A", true};
+            break;
+        case InstallState::Update:
+            action = {"Atualizar", "A", true};
+            break;
+        case InstallState::Reinstall:
+            action = {"Reinstalar", "A", true};
+            break;
+        }
+    }
+    return action;
+}
+
+bool toggleFavorite(const store::Game &game, FavoriteGames &favorites)
+{
+    const bool now = favorites.toggle(game.id);
+    sound::play(sound::Effect::Select);
+    ui::notify({now ? "Adicionado aos favoritos" : "Removido dos favoritos", game.name,
+                ui::Icon::Star, ui::color::IconGold});
+    return now;
+}
+
 // Teclas e toques da tela inferior quando ela mostra os detalhes.
 DetailResult detailsInput(const ui::Input &input, const store::Catalog &catalog,
                           const store::Game &game, Details &details,
                           FavoriteGames &favorites)
 {
     details.show(game.id);
-    const int translations = static_cast<int>(game.translations.size());
-    if ((input.down & KEY_L) && details.translation > 0) {
-        --details.translation;
-        sound::play(sound::Effect::Move);
-    }
-    if ((input.down & KEY_R) && details.translation + 1 < translations) {
-        ++details.translation;
-        sound::play(sound::Effect::Move);
-    }
-    details.scroll(input);
-
-    if ((input.down & KEY_X) || released(input, FavoriteButton)) {
-        const bool now = favorites.toggle(game.id);
-        sound::play(sound::Effect::Select);
-        ui::notify({now ? "Adicionado aos favoritos" : "Removido dos favoritos",
-                    game.name, ui::Icon::Star, ui::color::IconGold});
-        return now ? DetailResult::Favorited : DetailResult::Unfavorited;
-    }
+    details.input(input, static_cast<int>(game.translations.size()));
     const store::Translation *t = selectedTranslation(game, details);
-    if (t != nullptr && ((input.down & KEY_A) || released(input, InstallButton))) {
-        const InstallState state = installState(*t);
-        if (state == InstallState::Install || state == InstallState::Update ||
-            state == InstallState::Reinstall) {
-            sound::play(sound::Effect::Select);
-            requestInstall(catalog, game, *t, state);
-            return DetailResult::Dialog;
-        }
+    const PaneAction action = paneAction(t, details.pane, favorites.contains(game.id));
+    if (action.label.empty() || !action.enabled) {
+        return DetailResult::None;
+    }
+    const bool touched =
+        released(input, ui::tabRect(ui::Tab::Right, action.label, action.key));
+    if (details.pane == Pane::Info && ((input.down & KEY_X) || touched)) {
+        return toggleFavorite(game, favorites) ? DetailResult::Favorited
+                                               : DetailResult::Unfavorited;
+    }
+    if (details.pane == Pane::Translation && t != nullptr &&
+        ((input.down & KEY_A) || touched)) {
+        sound::play(sound::Effect::Select);
+        requestInstall(catalog, game, *t, installState(*t));
+        return DetailResult::Dialog;
     }
     return DetailResult::None;
 }
@@ -720,36 +855,29 @@ void drawDetailsPane(const store::Catalog &catalog, const store::Game &game,
                      Details &details, const FavoriteGames &favorites,
                      const ui::Input &input)
 {
-    details.draw(catalog, game);
-    const bool favorite = favorites.contains(game.id);
-    ui::drawButton(FavoriteButton, favorite ? "Desfavoritar" : "Favoritar",
-                   ui::Style::Normal, 0.5f,
-                   favorite ? ui::Icon::Star : ui::Icon::StarOutline,
-                   ui::color::IconGold, held(input, FavoriteButton));
+    const int count = static_cast<int>(game.translations.size());
+    const int index = count > 0 ? details.clampTranslation(count) : 0;
     const store::Translation *t = selectedTranslation(game, details);
-    const InstallState state = t == nullptr ? InstallState::Unavailable : installState(*t);
-    switch (state) {
-    case InstallState::Unavailable:
-        ui::drawButton(InstallButton, "Instalar", ui::Style::Disabled, 0.5f);
+    details.drawTabs();
+    float y = details.begin();
+    switch (details.pane) {
+    case Pane::Info:
+        y = drawInfoPane(catalog, game, t, y);
         break;
-    case InstallState::NeedsNewerApp:
-        ui::drawButton(InstallButton, "Requer app novo", ui::Style::Disabled, 0.44f);
+    case Pane::Translation:
+        y = drawTranslationPane(game, t, index, y);
         break;
-    case InstallState::Pending:
-        ui::drawButton(InstallButton, "Na fila", ui::Style::Disabled, 0.5f);
+    case Pane::Credits:
+        y = drawCreditsPane(t, index, count, y);
         break;
-    case InstallState::Install:
-    case InstallState::Update:
-    case InstallState::Reinstall:
-        ui::drawButton(InstallButton,
-                       state == InstallState::Update      ? "Atualizar"
-                       : state == InstallState::Reinstall ? "Reinstalar"
-                                                          : "Instalar",
-                       ui::Style::Normal, 0.5f,
-                       state == InstallState::Install ? ui::Icon::Download
-                                                      : ui::Icon::Refresh,
-                       ui::color::IconGreen, held(input, InstallButton));
-        break;
+    }
+    details.end(y);
+
+    const PaneAction action = paneAction(t, details.pane, favorites.contains(game.id));
+    if (!action.label.empty()) {
+        const ui::Rect rect = ui::tabRect(ui::Tab::Right, action.label, action.key);
+        ui::drawTab(ui::Tab::Right, action.label, action.key,
+                    action.enabled && held(input, rect));
     }
 }
 
@@ -1061,103 +1189,69 @@ std::string isoToBrazilian(const std::string &iso)
     return iso.size() >= 10 ? brazilianDate(iso.substr(0, 10)) : iso;
 }
 
-const ui::Rect UpdateButton = {8, 166, 148, 36};
-const ui::Rect UninstallButton = {164, 166, 148, 36};
 
+// Detalhes da Biblioteca: as mesmas abas; a aba Tradução mostra também os
+// dados da instalação.
 class LibraryDetails {
 public:
-    int translation = 0;
-
-    void show(const std::string &gameId)
-    {
-        if (gameId != shown_) {
-            shown_ = gameId;
-            translation = 0;
-            scroller_.setOffset(0);
-        }
-    }
-
-    void scroll(const ui::Input &input)
-    {
-        scroller_.update(input, DetailArea, content_, DetailArea.h);
-        circlePosition circle;
-        hidCircleRead(&circle);
-        if (std::abs(circle.dy) > 20) {
-            const float maximum = std::max(0.0f, content_ - DetailArea.h);
-            scroller_.setOffset(std::max(
-                0.0f, std::min(maximum, scroller_.offset() - circle.dy / 156.0f * 7.0f)));
-        }
-    }
+    DetailView view;
 
     void draw(const store::Catalog &catalog, const LibraryEntry &entry)
     {
         const store::Game &game = *entry.game;
         const int count = static_cast<int>(entry.manifests.size());
-        translation = std::max(0, std::min(translation, count - 1));
-        const installed::Manifest &m = entry.manifests[translation];
+        const int index = view.clampTranslation(count);
+        const installed::Manifest &m = entry.manifests[index];
         const store::Translation *t = findTranslation(catalog, m.translationId);
 
-        ui::pushClip(DetailArea);
-        const float top = 6 - scroller_.offset();
-        float y = top;
-        const C2D_Image *cover =
-            game.cover.empty()
-                ? nullptr
-                : imagecache::cover(game.cover, catalog.resolveUrl(game.cover.url));
-        if (cover != nullptr) {
-            ui::drawImage(*cover, 8, y);
-        } else {
-            ui::fillRound({8, y, 112, 128}, 5, ui::color::Recess);
-            ui::drawIcon(ui::Icon::Picture, 48, y + 48, 32, ui::color::Neutral);
+        view.drawTabs();
+        float y = view.begin();
+        switch (view.pane) {
+        case Pane::Info:
+            y = drawInfoPane(catalog, game, t, y);
+            break;
+        case Pane::Translation:
+            y = drawInstalled(m, t, index, count, y);
+            break;
+        case Pane::Credits:
+            y = drawCreditsPane(t, index, count, y);
+            break;
         }
-        constexpr float RightX = 128;
-        constexpr float RightWidth = 184;
-        constexpr float GameTag = 68;
-        float right = ui::drawWrapped(game.name, RightX, y, 0.56f,
-                                      ui::color::InkStrong, RightWidth, 3) + 4;
-        right = tagLine(RightX, right, GameTag, RightWidth, "Plataforma",
-                        platformName(game.platform));
-        for (const store::TitleId &title : game.titleIds) {
-            right = tagLine(RightX, right, GameTag, RightWidth, "Title ID",
-                            title.region + " " + title.id);
-        }
-        y = std::max(y + 128, right) + 8;
+        view.end(y);
+    }
 
-        ui::fillRound({8, y, 304, 1.5f}, 0, ui::color::Dot);
-        y += 8;
-        if (count > 1) {
-            ui::drawText("Tradução " + std::to_string(translation + 1) + "/" +
-                             std::to_string(count),
-                         8, y, 0.42f, ui::color::Accent);
-            ui::drawText("L / R para trocar", 312, y, 0.38f, ui::color::InkSoft,
-                         C2D_AlignRight);
-            y += 16;
-        }
-        constexpr float TagWidth = 110;
+private:
+    float drawInstalled(const installed::Manifest &m, const store::Translation *t,
+                        int index, int count, float y)
+    {
+        y = translationSelector(y, index, count);
         y = ui::drawWrapped(m.translationName, 8, y, 0.52f, ui::color::InkStrong,
-                            304, 3) + 4;
-        y = tagLine(8, y, TagWidth, 304, "Versão instalada", m.version);
+                            FullWidth, 2) + 4;
         if (t != nullptr) {
-            y = tagLine(8, y, TagWidth, 304, "Versão do jogo",
-                        t->compatibility.gameVersions.empty()
-                            ? "Qualquer"
-                            : join(t->compatibility.gameVersions, ", "));
+            y = tagLine(8, y, TagWidth, FullWidth, "Idioma", languageName(t->language));
         }
-        y = tagLine(8, y, TagWidth, 304, "Instalada em", isoToBrazilian(m.installedAt));
-        y = tagLine(8, y, TagWidth, 304, "Versão disponível",
+        y = tagLine(8, y, TagWidth, FullWidth, "Versão instalada", m.version);
+        y = tagLine(8, y, TagWidth, FullWidth, "Versão disponível",
                     t == nullptr ? "Fora do catálogo"
                     : semver::compare(t->version, m.version) > 0
                         ? t->version + " (atualização)"
                         : t->version + " (atual)");
-        y = tagLine(8, y, TagWidth, 304, "Arquivos", filesText(m));
+        y = tagLine(8, y, TagWidth, FullWidth, "Instalada em", isoToBrazilian(m.installedAt));
+        y = tagLine(8, y, TagWidth, FullWidth, "Arquivos", filesText(m));
         if (!m.cias.empty()) {
-            y = tagLine(8, y, TagWidth, 304, "CIA", join(m.cias, ", "));
+            y = tagLine(8, y, TagWidth, FullWidth, "CIA", join(m.cias, ", "));
         }
-        content_ = (y - top) + 10;
-        ui::popClip();
+        if (t == nullptr) {
+            return y;
+        }
+        if (!t->releaseDate.empty()) {
+            y = tagLine(8, y, TagWidth, FullWidth, "Lançamento",
+                        brazilianDate(t->releaseDate));
+        }
+        y = compatibilityLines(*t, y);
+        return paragraph(t->description, 8, y + 4, FullWidth);
     }
 
-private:
     std::string filesText(const installed::Manifest &m)
     {
         const auto found = sizes_.find(m.translationId);
@@ -1178,9 +1272,6 @@ private:
                units::bytes(bytes);
     }
 
-    std::string shown_;
-    ui::Scroller scroller_;
-    float content_ = 0;
     std::map<std::string, uint64_t> sizes_;
 };
 
@@ -1260,32 +1351,31 @@ void runLibrary(const store::Catalog &catalog, FavoriteGames &favorites)
         bool updatable = false;
         bool pending = false;
         if (entry != nullptr) {
-            details.show(entry->game->id);
+            details.view.show(entry->game->id);
             const int translations = static_cast<int>(entry->manifests.size());
-            if ((input.down & KEY_L) && details.translation > 0) {
-                --details.translation;
-                sound::play(sound::Effect::Move);
-            }
-            if ((input.down & KEY_R) && details.translation + 1 < translations) {
-                ++details.translation;
-                sound::play(sound::Effect::Move);
-            }
-            details.scroll(input);
+            details.view.input(input, translations);
             const installed::Manifest &m =
-                entry->manifests[std::max(0, std::min(details.translation, translations - 1))];
+                entry->manifests[details.view.clampTranslation(translations)];
             const store::Game *owner = nullptr;
             const store::Translation *t = findTranslation(catalog, m.translationId, &owner);
             pending = jobs::pending(m.translationId);
             updatable = !pending && t != nullptr && owner != nullptr &&
                         !t->needsNewerApp() && semver::compare(t->version, m.version) > 0;
+            const ui::Rect actionTab = ui::tabRect(
+                ui::Tab::Right, updatable ? "Atualizar" : "Desinstalar", updatable ? "A" : "Y");
 
-            if (updatable && ((input.down & KEY_A) || released(input, UpdateButton))) {
+            if ((input.down & KEY_X) || released(input, FavoriteIcon)) {
+                toggleFavorite(*entry->game, favorites);
+            }
+            if (updatable && ((input.down & KEY_A) || released(input, actionTab))) {
                 sound::play(sound::Effect::Select);
                 requestInstall(catalog, *owner, *t, InstallState::Update);
                 ui::enterScreen("library");
                 continue;
             }
-            if (!pending && ((input.down & KEY_Y) || released(input, UninstallButton))) {
+            // Y desinstala mesmo quando a aba mostra Atualizar.
+            if (!pending && ((input.down & KEY_Y) ||
+                             (!updatable && released(input, actionTab)))) {
                 sound::play(sound::Effect::Select);
                 requestUninstall(catalog, *entry->game, m);
                 ui::enterScreen("library");
@@ -1298,16 +1388,21 @@ void runLibrary(const store::Catalog &catalog, FavoriteGames &favorites)
         ui::beginBottom();
         if (entry != nullptr) {
             details.draw(catalog, *entry);
+            // Favoritar: só o ícone, entre Voltar e a ação.
+            const bool favorite = favorites.contains(entry->game->id);
+            ui::drawButton(FavoriteIcon, "", ui::Style::Normal, 0.5f, ui::Icon::None, 0,
+                           held(input, FavoriteIcon));
+            ui::drawIcon(favorite ? ui::Icon::Star : ui::Icon::StarOutline,
+                         FavoriteIcon.x + (FavoriteIcon.w - 20) / 2,
+                         FavoriteIcon.y + (FavoriteIcon.h - 20) / 2, 20,
+                         ui::color::IconGold);
             if (pending) {
-                ui::drawButton(UpdateButton, "Na fila", ui::Style::Disabled, 0.5f);
-                ui::drawButton(UninstallButton, "Desinstalar", ui::Style::Disabled, 0.5f);
+                ui::drawTab(ui::Tab::Right, "Na fila");
             } else {
-                ui::drawButton(UpdateButton, "Atualizar",
-                               updatable ? ui::Style::Normal : ui::Style::Disabled, 0.5f,
-                               ui::Icon::Refresh, ui::color::IconGreen,
-                               updatable && held(input, UpdateButton));
-                ui::drawButton(UninstallButton, "Desinstalar", ui::Style::Danger, 0.5f,
-                               ui::Icon::Trash, 0, held(input, UninstallButton));
+                const char *label = updatable ? "Atualizar" : "Desinstalar";
+                const char *key = updatable ? "A" : "Y";
+                ui::drawTab(ui::Tab::Right, label, key,
+                            held(input, ui::tabRect(ui::Tab::Right, label, key)));
             }
         } else {
             ui::drawWrapped("Instale traduções pelo Catálogo para elas aparecerem aqui.",

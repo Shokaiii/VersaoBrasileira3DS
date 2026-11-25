@@ -107,7 +107,7 @@ A versão do título dentro do `.cia` é `MAJOR*16384 + MINOR*1024 + PATCH` (lim
   ],
   "images": {
     "icon":  { "url": "images/pokemon-x/icon.png",  "sha256": "…", "width": 48,  "height": 48 },
-    "cover": { "url": "images/pokemon-x/cover.jpg", "sha256": "…", "width": 128, "height": 128 }
+    "cover": { "url": "images/pokemon-x/cover.jpg", "sha256": "…", "width": 192, "height": 128 }
   },
   "translations": [ /* Translation */ ]
 }

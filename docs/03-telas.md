@@ -1,7 +1,9 @@
 # Versão Brasileira — Especificação 03: Telas
 
-Status: rascunho v0.2 (2026-11-18)
+Status: rascunho v0.3 (2026-11-25)
 Baseado na definição do usuário (8 telas) e no kit visual da Especificação 02. Medidas em pixels do console: superior 400×240, inferior 320×240.
+
+Alterações da v0.3: detalhes do jogo em abas (Info, Tradução, Créditos), capa 3:2 (192×128), ações nas abas de baixo.
 
 Alterações da v0.2: botões dedicados **Instalar** e **Favoritar** nos detalhes do jogo; favoritos confirmados por jogo; definição de versão do jogo × versão da tradução; cor de destaque confirmada.
 
@@ -88,28 +90,25 @@ Quando o version.json traz versão nova do app (Especificação 01, §2.1), uma 
 
 ### 3.3 Inferior — detalhes do jogo selecionado
 
-Três faixas:
-- **Área rolável** y 6–160, por toque (arrastar/deslizar).
-- **Faixa de botões fixa** y 166–202.
-- **Abas** y 209–239.
+Três abas no alto da tela (y 4–28), trocadas por toque: **Info**, **Tradução** e **Créditos**. Abaixo delas, a área rolável (y 32–206, toque ou Circle Pad). As ações ficam nas abas cinza de baixo: **B Voltar** à esquerda e a ação da aba à direita. **L/R** trocam de tradução em qualquer aba.
 
-Área rolável — bloco do jogo:
-- **Capa** 112×128 à esquerda (x 8, y 8).
-- À direita da capa, fatos: **Nome**, **Plataforma**, **ID**, **Title ID** (um por região, quando houver).
-- Abaixo: **Descrição** do jogo.
+**Info**
+- Nome do jogo (até 2 linhas, à esquerda).
+- Capa 192×128 (3:2), centralizada.
+- **Plataforma**, **Title ID** (todos numa linha), **Versão do jogo** (exigida pela tradução selecionada), cada um em uma linha.
+- Descrição do jogo.
+- Aba direita: **X Favoritar** / **X Desfavoritar**.
 
-Área rolável — bloco da tradução:
-- Se houver mais de uma tradução: seletor em segmentos no topo do bloco (“Tradução 1/2”), trocado com **L/R** ou toque.
-- Fatos: **Idioma**, **Versão da tradução**, **Versão do jogo** (exigida, de `game_versions`), **Autores** (nome — função, um por linha), **Compatibilidade** (regiões, consoles, requisitos, observações).
-- **Descrição** da tradução.
-- Se instalada: etiqueta **Instalada v1.1.0**; se houver versão nova: **Atualização disponível**.
+**Tradução**
+- “Tradução 1/2 · L / R para trocar”, quando houver mais de uma.
+- Nome da tradução (até 2 linhas).
+- **Idioma**, **Versão da tradução**, **Lançamento**, **Regiões**, **Consoles**, **Download** (uma linha cada), **Requisitos** (até 2 linhas), **Observações** (várias linhas, em vermelho).
+- Descrição da tradução.
+- Aba direita: **A Instalar** / **A Atualizar** / **A Reinstalar**; “Na fila” ou “Requer app novo” sem tecla quando não dá para instalar.
 
-Faixa de botões (dois botões grandes lado a lado, ~148×36 cada):
-- **★ Favoritar** / **★ Desfavoritar** — ícone de estrela contornada/dourada. Atalho: **X**.
-- **Instalar** — vira **Atualizar** ou **Reinstalar** conforme o estado; desabilitado (estilo tracejado) se incompatível ou se a tradução já estiver na fila. Atalho: **A**. Abre um diálogo de confirmação com tamanho do download e quantidade de etapas; ao confirmar, a tradução vai para a Fila e aparece uma notificação.
-- Os botões são tocáveis e também acionados pelas teclas; o anel verde continua na grade da tela superior.
-
-Abas: **B Voltar**. **L/R** trocam de tradução.
+**Créditos**
+- Equipe da tradução: nome e, abaixo, a função, à esquerda, com quebra de linha.
+- Sem ação à direita.
 
 ---
 
@@ -144,13 +143,10 @@ Abas: **B Voltar**. **L/R** trocam de tradução.
 
 **Superior**: a mesma grade do Catálogo, só com jogos que têm tradução instalada (lida dos manifestos). Todos os cartões têm o ícone **Instalada** ou **Atualização**.
 
-**Inferior**:
-- Capa e fatos do jogo (Nome, Plataforma, Title ID).
-- Fatos da tradução instalada: **Tradução**, **Versão instalada**, **Versão do jogo**, **Instalada em** (data), **Versão disponível** (se o catálogo tiver uma maior), **Arquivos** (quantidade e tamanho no SD).
-- Faixa de botões:
-  - **Atualizar** (só quando há versão nova) → Fila.
-  - **Desinstalar** (vermelho) → diálogo destrutivo (“Desinstalar a tradução de X? Os arquivos serão apagados.”) → Fila. Executa `uninstall.steps` do catálogo; sem eles, apaga os arquivos do manifesto.
-- Abas: **B Voltar**.
+**Inferior**: as mesmas abas do §3.3.
+- **Info** e **Créditos** iguais ao Catálogo.
+- **Tradução**: nome, Idioma, **Versão instalada**, **Versão disponível**, **Instalada em**, **Arquivos** (quantidade e tamanho no SD), **CIA** (quando houver), Lançamento, compatibilidade e descrição.
+- Botões iguais em todas as abas: **B Voltar** à esquerda; **Favoritar** só com o ícone de estrela, no meio (tecla X); à direita **A Atualizar** quando há versão nova, senão **Y Desinstalar** (Y desinstala também quando a aba mostra Atualizar). Desinstalar abre o diálogo destrutivo e vai para a Fila.
 
 ---
 

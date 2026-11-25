@@ -25,8 +25,9 @@ enum class Kind { Icon, Cover };
 constexpr int AtlasSize = 512;
 constexpr int AtlasColumns = 10;
 constexpr int IconSlots = AtlasColumns * AtlasColumns;
-// Capas: texturas próprias de 128x128.
-constexpr int CoverTexture = 128;
+// Capas: texturas próprias de 256x128 (capa de 192x128).
+constexpr int CoverTexWidth = 256;  // potência de 2 que cabe 192
+constexpr int CoverTexHeight = 128;
 constexpr int CoverSlots = 6;
 // Quantas imagens prontas vão para a GPU por quadro.
 constexpr int UploadsPerFrame = 4;
@@ -207,10 +208,10 @@ void setupTextures()
         iconImages[slot] = {&atlas, &iconSubs[slot]};
     }
     coverSub = {CoverWidth, CoverHeight, 0.0f, 1.0f,
-                static_cast<float>(CoverWidth) / CoverTexture,
-                1.0f - static_cast<float>(CoverHeight) / CoverTexture};
+                static_cast<float>(CoverWidth) / CoverTexWidth,
+                1.0f - static_cast<float>(CoverHeight) / CoverTexHeight};
     for (int slot = 0; slot < CoverSlots; ++slot) {
-        if (!C3D_TexInit(&covers[slot], CoverTexture, CoverTexture, GPU_RGB565)) {
+        if (!C3D_TexInit(&covers[slot], CoverTexWidth, CoverTexHeight, GPU_RGB565)) {
             C3D_TexDelete(&atlas);
             for (int other = 0; other < slot; ++other) {
                 C3D_TexDelete(&covers[other]);
@@ -284,7 +285,7 @@ void upload(Result &result)
         uint16_t *texels = static_cast<uint16_t *>(covers[slot].data);
         for (int y = 0; y < CoverHeight; ++y) {
             for (int x = 0; x < CoverWidth; ++x) {
-                texels[image::tiledIndex(x, y, CoverTexture)] =
+                texels[image::tiledIndex(x, y, CoverTexWidth)] =
                     result.pixels[y * CoverWidth + x];
             }
         }
