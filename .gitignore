@@ -1,0 +1,10 @@
+# Gerados pela compilação (recriados pelo compilar.bat)
+TranslationStore/build/
+TranslationStore/build.log
+*.3dsx
+*.cia
+*.elf
+*.smdh
+*.map
+*.bnr
+*.icn

@@ -1,0 +1,35 @@
+{
+  "catalog_version": "1.0.0",
+  "generated_at": "2026-11-18T12:00:00Z",
+  "base_url": "http://192.168.0.10:8000/",
+  "games": [
+    {
+      "id": "jogo-exemplo",
+      "name": "Jogo de Exemplo",
+      "platform": "3ds",
+      "description": "Jogo fictício para testar o catálogo.",
+      "title_ids": [{ "region": "USA", "id": "0004000000000000" }],
+      "images": {
+        "icon": { "url": "images/jogo-exemplo/icon.png", "width": 48, "height": 48 },
+        "cover": { "url": "images/jogo-exemplo/cover.jpg", "width": 112, "height": 128 }
+      },
+      "translations": [
+        {
+          "id": "jogo-exemplo-ptbr",
+          "name": "Jogo de Exemplo — Tradução PT-BR",
+          "language": "pt-BR",
+          "version": "1.0.0",
+          "authors": [{ "name": "Equipe Exemplo", "role": "Tradução" }],
+          "description": "Tradução de teste.",
+          "compatibility": { "regions": ["USA"], "game_versions": ["1.0"], "consoles": "all" },
+          "install": {
+            "steps": [
+              { "type": "downloadFile", "file": "files/jogo-exemplo/patch.zip", "output": "sdmc:/3ds/VersaoBrasileira/tmp/jogo-exemplo-ptbr/patch.zip" },
+              { "type": "extractFile", "file": "sdmc:/3ds/VersaoBrasileira/tmp/jogo-exemplo-ptbr/patch.zip", "output": "sdmc:/luma/titles/0004000000000000/" }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

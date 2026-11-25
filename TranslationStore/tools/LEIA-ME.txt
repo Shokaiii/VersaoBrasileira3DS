@@ -1,0 +1,2 @@
+makerom.exe e bannertool.exe geram o .cia (o .3dsx nao precisa deles).
+Creditos e licencas em LICENCAS.md.
