@@ -6,7 +6,7 @@ Status: v1 (2026-11-25). Código no repositório VersaoBrasileira3DS-Painel, em 
 - HostGator, PHP 8.4, MySQL (banco `janvic19_vbrasil`, usuário `janvic19_vbapp`).
 - Endereço: `https://versaobrasileira3ds.com.br/versaobrasileirahb/api/`.
 - `config.php` (senha do banco, `panel_key`, `ip_salt`, e-mails) fica só no servidor e fora do Git.
-- E-mail do Contato: enviado de e recebido em `contato@versaobrasileira3ds.com.br`.
+- E-mail do Contato: enviado de e recebido em `contato@versaobrasileira3ds.com.br` (Titan), por SMTP autenticado em `smtp.titan.email:465` (SSL). O `mail()` do PHP entregava numa caixa local do servidor e não chegava ao Titan; ele só é usado se `smtp_pass` estiver vazio.
 
 ## Tabelas
 - `downloads` — total por tradução (`translation_id`, `game_id`, `total`, `updated_at`).
