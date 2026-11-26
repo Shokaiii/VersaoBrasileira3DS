@@ -63,6 +63,11 @@ FetchResult fetch(const FetchRequest &request)
     if (headers != nullptr) {
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     }
+    if (request.post) {
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request.postBody.c_str());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE,
+                         static_cast<long>(request.postBody.size()));
+    }
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 5L);
     curl_easy_setopt(curl, CURLOPT_PROTOCOLS_STR, "http,https");

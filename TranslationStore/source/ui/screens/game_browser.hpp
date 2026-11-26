@@ -25,4 +25,9 @@ void runLibrary(const store::Catalog &catalog, FavoriteGames &favorites);
 void runSearch(const store::Catalog &catalog, FavoriteGames &favorites,
                std::string &term);
 
+// +Baixados: as traduções mais baixadas (ranking do servidor) na grade de
+// cima, com a posição e os downloads, e os detalhes embaixo, abertos na
+// tradução do ranking.
+void runTopDownloads(const store::Catalog &catalog, FavoriteGames &favorites);
+
 } // namespace screens

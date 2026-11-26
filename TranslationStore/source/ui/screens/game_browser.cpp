@@ -1,5 +1,7 @@
 #include "game_browser.hpp"
 
+#include "api.hpp"
+
 #include "image.hpp"
 #include "image_cache.hpp"
 #include "stb_image.h"
@@ -12,6 +14,7 @@
 #include "fs_util.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cmath>
 #include <deque>
@@ -275,6 +278,8 @@ class Grid {
 public:
     int selection = 0;
     StatusFn status = catalogStatus;
+    // +Baixados: posição e downloads de cada cartão (índice na lista).
+    std::function<bool(int index, int &position, int &downloads)> rank;
 
     // Move a seleção; retorna true se mudou.
     bool navigate(const ui::Input &input, int count)
@@ -350,7 +355,7 @@ public:
                 const float y = GridTop + row * RowPitch - scroll_;
                 drawCard(catalog, *games[index], favorites,
                          {ColumnX[column], y, CardWidth, CardHeight},
-                         index == selection);
+                         index == selection, index);
             }
         }
         // Barra de rolagem fina à direita.
@@ -366,7 +371,7 @@ public:
 private:
     void drawCard(const store::Catalog &catalog, const store::Game &game,
                   const FavoriteGames &favorites, const ui::Rect &rect,
-                  bool selected)
+                  bool selected, int index)
     {
         if (rect.y + rect.h < 0 || rect.y > 240) {
             // Fora da tela: só pede o ícone para já ir carregando.
@@ -394,9 +399,34 @@ private:
             ui::drawIcon(ui::Icon::Star, rect.x + rect.w - 18, rect.y + 4, 14,
                          ui::color::IconGold);
         }
+        int position = 0;
+        int downloads = 0;
+        if (rank && rank(index, position, downloads)) {
+            drawRank(rect, position, downloads);
+        }
         if (selected) {
             ui::drawFocus(rect, 6);
         }
+    }
+
+    // Medalha com a posição sobre o canto do ícone e, na base, o total de
+    // downloads.
+    static void drawRank(const ui::Rect &rect, int position, int downloads)
+    {
+        const u32 medal = position == 1   ? ui::color::rgb(0xD4A017)
+                          : position == 2 ? ui::color::rgb(0x9EA3A8)
+                          : position == 3 ? ui::color::rgb(0xB87333)
+                                          : ui::color::Accent;
+        const std::string number = std::to_string(position) + "º";
+        const float width = std::max(18.0f, ui::textWidth(number, 0.4f) + 8);
+        const ui::Rect badge = {rect.x + 1, rect.y + 1, width, 17};
+        ui::fillRound(badge.inset(-1), 9, ui::color::rgb(0xFFFFFF));
+        ui::fillRound(badge, 8.5f, medal);
+        ui::drawCentered(number, badge, 0.4f, ui::color::rgb(0xFFFFFF));
+        const float x = rect.x + 58;
+        const float y = rect.y + rect.h - 18;
+        ui::drawIcon(ui::Icon::Download, x, y + 1, 12, ui::color::InkSoft);
+        ui::drawText(std::to_string(downloads), x + 14, y, 0.38f, ui::color::InkSoft);
     }
 
     int topRow_ = 0;
@@ -1426,6 +1456,185 @@ void runLibrary(const store::Catalog &catalog, FavoriteGames &favorites)
                             C2D_AlignCenter);
         }
         ui::drawTab(ui::Tab::Left, "Voltar", "B", held(input, backTab));
+        ui::endFrame();
+    }
+}
+
+} // namespace screens
+
+// --- +Baixados ------------------------------------------------------------------
+
+namespace screens {
+namespace {
+
+struct RankEntry {
+    const store::Game *game = nullptr;
+    int translation = 0; // índice da tradução no jogo
+    int position = 0;
+    int downloads = 0;
+};
+
+// Busca do ranking numa thread, para a tela continuar respondendo.
+struct RankingFetch {
+    Thread thread = nullptr;
+    std::atomic<bool> done {false};
+    api::Ranking result;
+
+    static void entry(void *self)
+    {
+        RankingFetch *fetch = static_cast<RankingFetch *>(self);
+        fetch->result = api::ranking();
+        fetch->done.store(true);
+    }
+
+    void start()
+    {
+        join();
+        done.store(false);
+        s32 priority = 0x30;
+        svcGetThreadPriority(&priority, CUR_THREAD_HANDLE);
+        thread = threadCreate(entry, this, 64 * 1024,
+                              std::min(0x3f, static_cast<int>(priority) + 1), -2, false);
+        if (thread == nullptr) {
+            result = api::Ranking {};
+            result.message = "Não foi possível consultar o servidor.";
+            done.store(true);
+        }
+    }
+
+    void join()
+    {
+        if (thread != nullptr) {
+            threadJoin(thread, U64_MAX);
+            threadFree(thread);
+            thread = nullptr;
+        }
+    }
+
+    ~RankingFetch() { join(); }
+};
+
+// Só as traduções que estão no catálogo local, na ordem do ranking.
+std::vector<RankEntry> rankEntries(const store::Catalog &catalog,
+                                   const api::Ranking &ranking)
+{
+    std::vector<RankEntry> out;
+    for (const api::RankItem &item : ranking.items) {
+        for (const store::Game &game : catalog.games) {
+            for (size_t index = 0; index < game.translations.size(); ++index) {
+                if (game.translations[index].id == item.translationId) {
+                    RankEntry entry;
+                    entry.game = &game;
+                    entry.translation = static_cast<int>(index);
+                    entry.downloads = item.downloads;
+                    out.push_back(entry);
+                }
+            }
+        }
+    }
+    for (size_t index = 0; index < out.size(); ++index) {
+        out[index].position = static_cast<int>(index) + 1;
+    }
+    return out;
+}
+
+} // namespace
+
+void runTopDownloads(const store::Catalog &catalog, FavoriteGames &favorites)
+{
+    RankingFetch fetch;
+    fetch.start();
+    std::vector<RankEntry> entries;
+    std::vector<const store::Game *> games;
+    bool loaded = false;
+    std::string problem;
+
+    Grid grid;
+    grid.rank = [&entries](int index, int &position, int &downloads) {
+        if (index < 0 || index >= static_cast<int>(entries.size())) {
+            return false;
+        }
+        position = entries[index].position;
+        downloads = entries[index].downloads;
+        return true;
+    };
+    Details details;
+    int shownSelection = -1;
+    ui::enterScreen("top_downloads");
+
+    while (ui::keepRunning()) {
+        imagecache::update();
+        const ui::Input input = ui::readInput();
+
+        if (!loaded && fetch.done.load()) {
+            fetch.join();
+            loaded = true;
+            if (fetch.result.ok) {
+                entries = rankEntries(catalog, fetch.result);
+                for (const RankEntry &entry : entries) {
+                    games.push_back(entry.game);
+                }
+                grid.clamp(static_cast<int>(games.size()));
+            } else {
+                problem = fetch.result.message;
+            }
+        }
+
+        if ((input.down & KEY_B) || released(input, ui::tabRect(ui::Tab::Left))) {
+            sound::play(sound::Effect::Back);
+            return;
+        }
+        const int count = static_cast<int>(games.size());
+        // Falhou: A tenta de novo.
+        if (loaded && !problem.empty() && (input.down & KEY_A)) {
+            sound::play(sound::Effect::Select);
+            problem.clear();
+            loaded = false;
+            fetch.start();
+            continue;
+        }
+        if (grid.navigate(input, count)) {
+            sound::play(sound::Effect::Move);
+        }
+        const store::Game *game = count > 0 ? games[grid.selection] : nullptr;
+        if (game != nullptr) {
+            // Ao mudar de cartão, abre na tradução do ranking.
+            if (grid.selection != shownSelection) {
+                shownSelection = grid.selection;
+                details.show(game->id);
+                details.translation = entries[grid.selection].translation;
+            }
+            if (detailsInput(input, catalog, *game, details, favorites) ==
+                DetailResult::Dialog) {
+                ui::enterScreen("top_downloads");
+                continue;
+            }
+        }
+
+        ui::beginFrame();
+        if (!loaded) {
+            ui::drawCentered("Carregando as mais baixadas...", {20, 0, 360, 240},
+                             ui::type::Body, ui::color::InkSoft);
+        } else if (!problem.empty()) {
+            ui::drawWrapped(problem, 200, 100, ui::type::Body, ui::color::InkSoft, 340, 3,
+                            C2D_AlignCenter);
+        } else {
+            grid.draw(catalog, games, favorites, "Nenhum download registrado ainda.");
+        }
+        ui::beginBottom();
+        if (game != nullptr) {
+            drawDetailsPane(catalog, *game, details, favorites, input);
+        } else if (loaded && !problem.empty()) {
+            ui::drawWrapped("Não foi possível carregar o ranking. Verifique a conexão.",
+                            160, 70, ui::type::Small, ui::color::InkSoft, 280, 3,
+                            C2D_AlignCenter);
+            ui::drawTab(ui::Tab::Right, "Repetir", "A");
+        } else if (loaded) {
+            ui::drawWrapped("As traduções mais baixadas aparecem aqui.", 160, 80,
+                            ui::type::Small, ui::color::InkSoft, 280, 3, C2D_AlignCenter);
+        }
+        ui::drawTab(ui::Tab::Left, "Voltar", "B",
+                    held(input, ui::tabRect(ui::Tab::Left)));
         ui::endFrame();
     }
 }

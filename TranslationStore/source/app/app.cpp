@@ -1,5 +1,6 @@
 #include "app.hpp"
 
+#include "api.hpp"
 #include "app_update_screen.hpp"
 #include "catalog_updater.hpp"
 #include "fs_util.hpp"
@@ -53,6 +54,7 @@ void App::run()
 {
     prepareFolders();
     config_ = config::load();
+    api::setVersionUrl(config_.versionUrl);
     sound::setEnabled(config_.sounds);
 
     ops::setConnections(config_.connections);
@@ -144,10 +146,10 @@ void App::run()
             break;
         case screens::HomeChoice::Settings:
             screens::runSettings(config_, localVersion_);
+            api::setVersionUrl(config_.versionUrl); // pode ter mudado
             break;
         case screens::HomeChoice::TopDownloads:
-            ui::message("+Baixados", "Em breve: as traduções mais baixadas.",
-                        ui::Tone::Info);
+            screens::runTopDownloads(catalog_, favorites_);
             break;
         case screens::HomeChoice::Contact:
             ui::message("Contato", "Em breve: envie erros e pedidos de tradução.",

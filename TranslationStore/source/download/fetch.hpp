@@ -15,6 +15,9 @@ struct FetchRequest {
     std::string caFile; // PEM bundle; "" uses libcurl's default
     std::string userAgent;
     std::vector<std::string> headers; // "Name: value"
+    // POST com este corpo (o Content-Type vai em headers); senão, GET.
+    bool post = false;
+    std::string postBody;
     // Answers larger than this fail instead of filling memory.
     size_t maxBytes = 1024 * 1024;
     long connectTimeoutSeconds = 15;

@@ -139,6 +139,15 @@ Três abas no alto da tela (y 4–28), trocadas por toque: **Info**, **Traduçã
 
 ---
 
+## 5.1 +Baixados
+
+- **Superior**: a mesma grade do Catálogo, com as traduções mais baixadas em ordem (ranking do servidor, `baixados.php`). Cada cartão tem uma medalha com a posição sobre o canto do ícone (1º ouro, 2º prata, 3º bronze, as demais em verde) e, na base, o total de downloads. Só entram traduções que existem no catálogo local; um jogo pode aparecer mais de uma vez, uma por tradução.
+- **Inferior**: os mesmos detalhes em abas do §3.3, abertos na tradução daquele cartão (L/R continuam trocando).
+- Enquanto carrega: “Carregando as mais baixadas...”. Sem conexão: mensagem e **A Repetir**.
+- O ranking é consultado a cada vez que a tela é aberta.
+
+---
+
 ## 6. Biblioteca
 
 **Superior**: a mesma grade do Catálogo, só com jogos que têm tradução instalada (lida dos manifestos). Todos os cartões têm o ícone **Instalada** ou **Atualização**.

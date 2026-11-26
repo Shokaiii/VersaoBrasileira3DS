@@ -1,5 +1,6 @@
 #include "jobs.hpp"
 
+#include "api.hpp"
 #include "fs_util.hpp"
 #include "installed.hpp"
 #include "logging.hpp"
@@ -270,6 +271,11 @@ void finishSuccess(Job &job)
                         : job.view.kind == Kind::Update  ? "Atualização concluída"
                                                          : "Instalação concluída";
     pushNotice(true, title, job.view.gameName);
+    // +Baixados: conta só a primeira instalação no console (sem manifesto
+    // antes); atualizar e reinstalar não contam.
+    if (job.view.kind == Kind::Install && !job.hasPrevious) {
+        api::reportDownload(job.view.translationId);
+    }
 }
 
 void run(Job &job)
