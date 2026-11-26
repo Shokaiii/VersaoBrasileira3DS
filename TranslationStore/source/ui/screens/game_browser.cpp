@@ -417,8 +417,20 @@ ui::Rect paneTab(int index)
 }
 
 const ui::Rect DetailArea = {0, 32, 320, 174};
-// Favoritar só com o ícone, entre as duas abas (Biblioteca).
-const ui::Rect FavoriteIcon = {133, 211, 54, 28};
+// Cores de texto das abas de ação (claras, para ler sobre o cinza).
+const u32 TabYellow = ui::color::rgb(0xFFD84D);
+const u32 TabBlue = ui::color::rgb(0x8FD0FF);
+const u32 TabRed = ui::color::rgb(0xFF8C7A);
+const u32 TabGreen = ui::color::rgb(0x9BEA9F);
+
+// Favoritar só com o ícone, centralizado entre Voltar e a ação (Biblioteca).
+ui::Rect favoriteIcon(const ui::Rect &right)
+{
+    const ui::Rect left = ui::tabRect(ui::Tab::Left);
+    constexpr float Width = 44;
+    const float centre = (left.x + left.w + right.x) / 2;
+    return {std::round(centre - Width / 2), 211, Width, 28};
+}
 
 constexpr float TagScale = 0.36f;
 constexpr float ValueScale = 0.44f;
@@ -485,7 +497,8 @@ std::string gameVersionsText(const store::Translation *t)
 float drawInfoPane(const store::Catalog &catalog, const store::Game &game,
                    const store::Translation *t, float y)
 {
-    y = ui::drawWrapped(game.name, 8, y, 0.56f, ui::color::InkStrong, FullWidth, 2) + 6;
+    y = ui::drawWrapped(game.name, 160, y, 0.56f, ui::color::InkStrong, FullWidth, 2,
+                        C2D_AlignCenter) + 6;
     const float coverX = (320 - imagecache::CoverWidth) / 2.0f;
     const C2D_Image *cover =
         game.cover.empty()
@@ -502,13 +515,15 @@ float drawInfoPane(const store::Catalog &catalog, const store::Game &game,
     }
     y += imagecache::CoverHeight + 8;
     y = tagLine(8, y, TagWidth, FullWidth, "Plataforma", platformName(game.platform));
-    std::vector<std::string> titles;
-    for (const store::TitleId &title : game.titleIds) {
-        titles.push_back(title.region + " " + title.id);
-    }
-    y = tagLine(8, y, TagWidth, FullWidth, "Title ID",
-                titles.empty() ? "—" : join(titles, "  ·  "));
     y = tagLine(8, y, TagWidth, FullWidth, "Versão do jogo", gameVersionsText(t));
+    if (game.titleIds.empty()) {
+        y = tagLine(8, y, TagWidth, FullWidth, "Title ID", "—");
+    }
+    for (size_t index = 0; index < game.titleIds.size(); ++index) {
+        const store::TitleId &title = game.titleIds[index];
+        y = tagLine(8, y, TagWidth, FullWidth, index == 0 ? "Title ID" : "",
+                    title.region + " " + title.id);
+    }
     return paragraph(game.description, 8, y + 4, FullWidth);
 }
 
@@ -559,7 +574,7 @@ float drawTranslationPane(const store::Game &game, const store::Translation *t,
     y = translationSelector(y, index, static_cast<int>(game.translations.size()));
     y = ui::drawWrapped(t->name, 8, y, 0.52f, ui::color::InkStrong, FullWidth, 2) + 4;
     y = tagLine(8, y, TagWidth, FullWidth, "Idioma", languageName(t->language));
-    y = tagLine(8, y, TagWidth, FullWidth, "Versão da tradução", t->version);
+    y = tagLine(8, y, TagWidth, FullWidth, "Versão Tradução", t->version);
     if (!t->releaseDate.empty()) {
         y = tagLine(8, y, TagWidth, FullWidth, "Lançamento", brazilianDate(t->releaseDate));
     }
@@ -571,6 +586,9 @@ float drawTranslationPane(const store::Game &game, const store::Translation *t,
 float drawCreditsPane(const store::Translation *t, int index, int count, float y)
 {
     y = translationSelector(y, index, count);
+    if (count > 1) {
+        y += 10; // separa o seletor do início dos créditos
+    }
     if (t == nullptr || t->authors.empty()) {
         ui::drawText("Nenhum crédito informado.", 8, y, ValueScale, ui::color::InkSoft);
         return y + LineStep;
@@ -784,13 +802,14 @@ struct PaneAction {
     std::string label; // vazio: sem aba
     std::string key;
     bool enabled = false;
+    u32 color = 0; // 0: branco
 };
 
 PaneAction paneAction(const store::Translation *t, Pane pane, bool favorite)
 {
     PaneAction action;
     if (pane == Pane::Info) {
-        action = {favorite ? "Desfavoritar" : "Favoritar", "X", true};
+        action = {favorite ? "Desfavoritar" : "Favoritar", "X", true, TabYellow};
     } else if (pane == Pane::Translation && t != nullptr) {
         switch (installState(*t)) {
         case InstallState::Unavailable:
@@ -802,13 +821,13 @@ PaneAction paneAction(const store::Translation *t, Pane pane, bool favorite)
             action = {"Na fila", "", false};
             break;
         case InstallState::Install:
-            action = {"Instalar", "A", true};
+            action = {"Instalar", "A", true, TabBlue};
             break;
         case InstallState::Update:
             action = {"Atualizar", "A", true};
             break;
         case InstallState::Reinstall:
-            action = {"Reinstalar", "A", true};
+            action = {"Reinstalar", "A", true, TabBlue};
             break;
         }
     }
@@ -877,7 +896,7 @@ void drawDetailsPane(const store::Catalog &catalog, const store::Game &game,
     if (!action.label.empty()) {
         const ui::Rect rect = ui::tabRect(ui::Tab::Right, action.label, action.key);
         ui::drawTab(ui::Tab::Right, action.label, action.key,
-                    action.enabled && held(input, rect));
+                    action.enabled && held(input, rect), action.color);
     }
 }
 
@@ -1364,7 +1383,7 @@ void runLibrary(const store::Catalog &catalog, FavoriteGames &favorites)
             const ui::Rect actionTab = ui::tabRect(
                 ui::Tab::Right, updatable ? "Atualizar" : "Desinstalar", updatable ? "A" : "Y");
 
-            if ((input.down & KEY_X) || released(input, FavoriteIcon)) {
+            if ((input.down & KEY_X) || released(input, favoriteIcon(actionTab))) {
                 toggleFavorite(*entry->game, favorites);
             }
             if (updatable && ((input.down & KEY_A) || released(input, actionTab))) {
@@ -1390,20 +1409,17 @@ void runLibrary(const store::Catalog &catalog, FavoriteGames &favorites)
             details.draw(catalog, *entry);
             // Favoritar: só o ícone, entre Voltar e a ação.
             const bool favorite = favorites.contains(entry->game->id);
-            ui::drawButton(FavoriteIcon, "", ui::Style::Normal, 0.5f, ui::Icon::None, 0,
-                           held(input, FavoriteIcon));
+            const char *label = pending ? "Na fila" : updatable ? "Atualizar" : "Desinstalar";
+            const char *key = pending ? "" : updatable ? "A" : "Y";
+            const ui::Rect actionTab = ui::tabRect(ui::Tab::Right, label, key);
+            const ui::Rect star = favoriteIcon(actionTab);
+            ui::drawButton(star, "", ui::Style::Normal, 0.5f, ui::Icon::None, 0,
+                           held(input, star));
             ui::drawIcon(favorite ? ui::Icon::Star : ui::Icon::StarOutline,
-                         FavoriteIcon.x + (FavoriteIcon.w - 20) / 2,
-                         FavoriteIcon.y + (FavoriteIcon.h - 20) / 2, 20,
+                         star.x + (star.w - 20) / 2, star.y + (star.h - 20) / 2, 20,
                          ui::color::IconGold);
-            if (pending) {
-                ui::drawTab(ui::Tab::Right, "Na fila");
-            } else {
-                const char *label = updatable ? "Atualizar" : "Desinstalar";
-                const char *key = updatable ? "A" : "Y";
-                ui::drawTab(ui::Tab::Right, label, key,
-                            held(input, ui::tabRect(ui::Tab::Right, label, key)));
-            }
+            ui::drawTab(ui::Tab::Right, label, key, !pending && held(input, actionTab),
+                        pending ? 0 : updatable ? TabGreen : TabRed);
         } else {
             ui::drawWrapped("Instale traduções pelo Catálogo para elas aparecerem aqui.",
                             160, 80, ui::type::Small, ui::color::InkSoft, 280, 3,

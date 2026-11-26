@@ -2126,7 +2126,7 @@ float drawKeyCap(const std::string &key, float x, const Rect &line,
 } // namespace
 
 void drawTab(Tab tab, const std::string &label, const std::string &key,
-             bool pressed)
+             bool pressed, u32 labelColor)
 {
     const Rect area = tabRect(tab, label, key);
     const unsigned corners = tab == Tab::Left    ? corner::TopRight
@@ -2170,7 +2170,7 @@ void drawTab(Tab tab, const std::string &label, const std::string &key,
     const Rect line = {x, area.y + 3.5f, labelWidth + keyWidth, area.h - 3};
     x = drawKeyCap(key, x, line, color::rgb(0xFFFFFF), color::rgb(0x6C6C6C));
     drawSqueezed(label, x, line.y + (line.h - lineHeight(labelScale)) / 2 + 1,
-                 labelScale, squeeze, color::rgb(0xFFFFFF), 0);
+                 labelScale, squeeze, labelColor != 0 ? labelColor : color::rgb(0xFFFFFF), 0);
 }
 
 void drawShoulderKeys(const ShoulderKey &left, const ShoulderKey &right)

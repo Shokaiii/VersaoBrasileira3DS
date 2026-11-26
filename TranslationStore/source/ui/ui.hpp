@@ -268,8 +268,9 @@ Rect tabRect(Tab tab, const std::string &label, const std::string &key = "");
 // key is the button that also presses the tab, drawn as a small white key
 // cap before the label (the system font's own symbol for A, B, X and Y when
 // it has them). Tabs never take the D-pad ring, so every tab shows its key.
+// labelColor 0 keeps the white label.
 void drawTab(Tab tab, const std::string &label, const std::string &key = "",
-             bool pressed = false);
+             bool pressed = false, u32 labelColor = 0);
 
 // A blue label tag; returns its width.
 float drawTag(float x, float y, const std::string &label,
