@@ -9,13 +9,15 @@ Python + FastAPI (backend), HTML/CSS/JavaScript sem framework (frontend), JSON S
 - `data/games/<game-id>.json` — jogo com as traduções, no mesmo formato do catalog.json (sem as URLs de imagem).
 - `data/images/<game-id>/icon.png` (48×48) e `cover.jpg` (192×128, 3:2) — já processadas.
 - `data/files/<translation-id>/<arquivo>` — pacotes das traduções (fora do Git).
+- `data/settings/segredos.json` — chave do painel na API (`panel_key`), fora do Git.
 - `data/settings/settings.json` — `base_url`, `catalog_url` (opcional), `catalog_version` e a publicação do aplicativo (`app_publish`, `app_required`, `app_notes`).
 
 ## Telas
 - **Jogos**: lista com busca; **Novo jogo** (nome, identificador fixo, plataforma).
 - **Jogo**: dados, Title IDs, ícone e capa (recorte na proporção certa com prévia no tamanho real), traduções (dados, equipe, compatibilidade, histórico, arquivos enviados com sha256/tamanho, etapas de instalação e desinstalação com sugestões de caminho e modelos LayeredFS/CIA). Identificadores de tradução ficam fixos depois de salvos.
 - **Gerar catálogo**: verificação (erros bloqueiam), escolha do aumento de versão, prévia do catalog.json e geração de `output/` (version.json, catalog.json, images/, files/ e app/ quando o app é publicado).
-- **Configurações**: endereço do servidor, versão do catálogo e a seção **Aplicativo** (versão do `TranslationStore/VERSION`, arquivos `.3dsx`/`.cia` compilados, publicar, atualização obrigatória, novidades).
+- **Configurações**: endereço do servidor, versão do catálogo, chave do painel (Servidor) e a seção **Aplicativo** (versão do `TranslationStore/VERSION`, arquivos `.3dsx`/`.cia` compilados, publicar, atualização obrigatória, novidades).
+- **Mensagens**: as mensagens do Contato lidas do servidor (`mensagens.php`), da mais nova para a mais antiga, com não lidas destacadas; **Marcar como lida** e **Apagar**.
 - **Importar**: traz um catalog.json existente e, com a pasta informada, as imagens e os arquivos.
 
 ## Geração

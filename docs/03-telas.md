@@ -205,6 +205,22 @@ Abas: **B Voltar**.
 
 ---
 
+## 8.1 Contato
+
+Aberto pelo botão **Contato** da Tela inicial. Envia para `contato.php` (Especificação 05).
+
+**Superior**: título “Contato” com o balão de conversa e um painel com a prévia: **Assunto**, **Jogo**, **Contato** e o texto da mensagem (até 5 linhas).
+
+**Inferior**
+- **Assunto**: três botões lado a lado — **Erro**, **Pedido**, **Outro** (o escolhido fica destacado; ←/→ trocam).
+- **Jogo**: campo de uma linha (teclado do sistema), com dica conforme o assunto (“Em qual jogo está o erro?”, “Qual jogo você quer traduzido?”).
+- **Mensagem**: teclado do sistema com várias linhas, até 2000 caracteres (obrigatória, mínimo 3).
+- **Contato**: Discord ou e-mail, opcional.
+- **Enviar** (também START): tela “Enviando...”; sucesso → “Mensagem enviada”, limpa o formulário e volta; erro → mensagem do servidor (ex.: limite de 5 por hora) e o texto continua guardado.
+- O rascunho fica guardado enquanto o app estiver aberto. Abas: **B Voltar**.
+
+---
+
 ## 9. Elementos globais
 
 - **Notificações** (cartão que desce na tela superior): “Instalação concluída: X”, “Falha ao instalar X”, “Adicionado à fila”.

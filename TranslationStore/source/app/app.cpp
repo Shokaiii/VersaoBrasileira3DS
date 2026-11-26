@@ -2,6 +2,7 @@
 
 #include "api.hpp"
 #include "app_update_screen.hpp"
+#include "contact_screen.hpp"
 #include "catalog_updater.hpp"
 #include "fs_util.hpp"
 #include "game_browser.hpp"
@@ -152,8 +153,7 @@ void App::run()
             screens::runTopDownloads(catalog_, favorites_);
             break;
         case screens::HomeChoice::Contact:
-            ui::message("Contato", "Em breve: envie erros e pedidos de tradução.",
-                        ui::Tone::Info);
+            screens::runContact();
             break;
         case screens::HomeChoice::Close:
             if (jobs::busy()) {

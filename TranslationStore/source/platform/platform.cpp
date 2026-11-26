@@ -162,14 +162,18 @@ bool keyboard(KeyboardKind kind, const std::string &hint,
 
     SwkbdState state;
     swkbdInit(&state, SWKBD_TYPE_NORMAL, 2,
-              kind == KeyboardKind::Name ? 120 : MaxCharacters);
+              kind == KeyboardKind::Name || kind == KeyboardKind::Line ? 120
+                                                                       : MaxCharacters);
     swkbdSetHintText(&state, hint.c_str());
-    swkbdSetButton(&state, SWKBD_BUTTON_LEFT, "Cancel", false);
+    swkbdSetButton(&state, SWKBD_BUTTON_LEFT, "Cancelar", false);
     swkbdSetButton(&state, SWKBD_BUTTON_RIGHT,
                    kind == KeyboardKind::Url ? "Download" : "OK", true);
     if (kind == KeyboardKind::Text) {
         swkbdSetValidation(&state, SWKBD_ANYTHING, 0, 0);
         swkbdSetFeatures(&state, SWKBD_DARKEN_TOP_SCREEN | SWKBD_MULTILINE);
+    } else if (kind == KeyboardKind::Line) {
+        swkbdSetValidation(&state, SWKBD_ANYTHING, 0, 0);
+        swkbdSetFeatures(&state, SWKBD_DARKEN_TOP_SCREEN);
     } else {
         swkbdSetValidation(&state, SWKBD_NOTEMPTY_NOTBLANK, 0, 0);
         swkbdSetFeatures(&state, SWKBD_DARKEN_TOP_SCREEN);
