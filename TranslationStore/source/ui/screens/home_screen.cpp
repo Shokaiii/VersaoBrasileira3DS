@@ -93,13 +93,15 @@ HomeChoice runHomeScreen(const HomeInfo &info, int &focus)
         control.tileScale = 0.47f;
         spec.controls.push_back(control);
     };
-    // 3 colunas × 2 linhas, blocos de 96×88 com 8 px entre eles.
-    add({8, 14, 96, 88}, "Catálogo", ui::Icon::Catalog, ui::color::IconGreen);
-    add({112, 14, 96, 88}, "Busca", ui::Icon::Search, ui::color::IconBlue);
-    add({216, 14, 96, 88}, "Favoritos", ui::Icon::Star, ui::color::IconGold);
-    add({8, 110, 96, 88}, "Biblioteca", ui::Icon::Library,
+    // Dois botões largos no alto (+Baixados e Contato) e, abaixo, 3 colunas
+    // × 2 linhas de blocos de 96×76 com 8 px entre eles. Os blocos vêm
+    // primeiro na lista para manter os índices (selos e foco) de antes.
+    add({8, 42, 96, 76}, "Catálogo", ui::Icon::Catalog, ui::color::IconGreen);
+    add({112, 42, 96, 76}, "Busca", ui::Icon::Search, ui::color::IconBlue);
+    add({216, 42, 96, 76}, "Favoritos", ui::Icon::Star, ui::color::IconGold);
+    add({8, 126, 96, 76}, "Biblioteca", ui::Icon::Library,
         ui::color::IconOrange);
-    add({112, 110, 96, 88}, "Fila", ui::Icon::Processes,
+    add({112, 126, 96, 76}, "Fila", ui::Icon::Processes,
         ui::color::IconTeal);
     // Selos: atualizações na Biblioteca; processos (ou falha) na Fila.
     if (info.updates > 0) {
@@ -113,7 +115,19 @@ HomeChoice runHomeScreen(const HomeInfo &info, int &focus)
         spec.controls[4].badge = std::to_string(info.queued);
         spec.controls[4].badgeColor = ui::color::IconBlue;
     }
-    add({216, 110, 96, 88}, "Ajustes", ui::Icon::Gear, ui::color::IconGrey);
+    add({216, 126, 96, 76}, "Ajustes", ui::Icon::Gear, ui::color::IconGrey);
+    const auto wide = [&](ui::Rect rect, const char *label, ui::Icon icon,
+                          u32 iconColor) {
+        ui::Control control;
+        control.rect = rect;
+        control.label = label;
+        control.icon = icon;
+        control.iconColor = iconColor;
+        control.scale = 0.5f;
+        spec.controls.push_back(control);
+    };
+    wide({8, 6, 148, 30}, "+Baixados", ui::Icon::Trophy, ui::color::IconGold);
+    wide({164, 6, 148, 30}, "Contato", ui::Icon::Chat, ui::color::rgb(0x2A86D1));
 
     spec.drawTop = [&]() {
         ui::nameScreen("Inicio");
@@ -156,6 +170,10 @@ HomeChoice runHomeScreen(const HomeInfo &info, int &focus)
         return HomeChoice::Processes;
     case 5:
         return HomeChoice::Settings;
+    case 6:
+        return HomeChoice::TopDownloads;
+    case 7:
+        return HomeChoice::Contact;
     default:
         break;
     }

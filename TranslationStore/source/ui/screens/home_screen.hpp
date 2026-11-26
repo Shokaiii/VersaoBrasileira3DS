@@ -5,7 +5,17 @@
 // Tela 2 — Tela inicial (Especificação 03, §2).
 namespace screens {
 
-enum class HomeChoice { Catalog, Search, Favorites, Library, Processes, Settings, Close };
+enum class HomeChoice {
+    Catalog,
+    Search,
+    Favorites,
+    Library,
+    Processes,
+    Settings,
+    TopDownloads,
+    Contact,
+    Close
+};
 
 struct HomeInfo {
     std::string localVersion;  // "" quando não há catálogo

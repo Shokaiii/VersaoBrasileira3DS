@@ -145,6 +145,14 @@ void App::run()
         case screens::HomeChoice::Settings:
             screens::runSettings(config_, localVersion_);
             break;
+        case screens::HomeChoice::TopDownloads:
+            ui::message("+Baixados", "Em breve: as traduções mais baixadas.",
+                        ui::Tone::Info);
+            break;
+        case screens::HomeChoice::Contact:
+            ui::message("Contato", "Em breve: envie erros e pedidos de tradução.",
+                        ui::Tone::Info);
+            break;
         case screens::HomeChoice::Close:
             if (jobs::busy()) {
                 ui::Dialog dialog;

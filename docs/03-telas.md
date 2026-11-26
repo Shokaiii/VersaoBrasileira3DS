@@ -58,12 +58,12 @@ Quando o version.json traz versão nova do app (Especificação 01, §2.1), uma 
 - Abaixo: **Catálogo local** e **Catálogo online** em linhas de fatos.
 
 **Inferior**
-- 6 blocos (`drawTile`) em 3 colunas × 2 linhas, com ícone de 30 px sobre o rótulo:
+- No alto, dois botões largos (148×30, ícone à esquerda do texto): **+Baixados** (troféu) e **Contato** (balão de conversa), em y 6.
+- Abaixo, 6 blocos (`drawTile`) de 96×76 em 3 colunas × 2 linhas (y 42 e 126), com ícone de 30 px sobre o rótulo:
   - Linha 1: **Catálogo**, **Busca**, **Favoritos**
   - Linha 2: **Biblioteca**, **Fila**, **Ajustes**
 - Selos sobre o canto superior direito do ícone do bloco: Biblioteca com a quantidade de atualizações disponíveis (laranja); Fila com a quantidade na fila (azul) ou um selo vermelho se algo falhou.
-- Barra inferior única **START Fechar** (como no 3dsDL).
-- Layout: blocos de 96×88, 8 px entre eles, começando em y ≈ 14; barra em y 209–239.
+- Barra inferior única **START Fechar** (como no 3dsDL); barra em y 209–239.
 
 ---
 
